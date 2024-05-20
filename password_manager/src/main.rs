@@ -20,13 +20,51 @@ fn display_options_list() {
     }
 }
 
-fn create_account() {}
+fn create_account(conn: &Connection) -> Result<()> {
+    println!("Creating Account...");
+
+    let mut name = String::new();
+    let mut master_password = String::new();
+
+    println!("Enter user name:");
+    stdin()
+        .read_line(&mut name)
+        .expect("Failed to read username");
+    name = name.trim().to_string();
+
+    println!("Enter master password:");
+    stdin()
+        .read_line(&mut master_password)
+        .expect("Failed to read master password");
+    master_password = master_password.trim().to_string();
+
+    conn.execute(
+        "INSERT INTO users (user_name, master_password) VALUES (?1, ?2)",
+        (&name, &master_password),
+    )?;
+
+    Ok(())
+}
 
 fn login() {}
 
 fn add_password() {}
 
-fn password_manager_operations(selected_operation: u8, logged: bool) {}
+fn password_manager_operations(selected_operation: u8, conn: &Connection) {
+    if selected_operation == 1 {
+        // Create Account
+        create_account(&conn);
+    } else if selected_operation == 2 {
+        // Login
+        login();
+    } else if selected_operation == 3 {
+        // Add account password pair
+        add_password();
+    } else {
+        // invalid option
+        println!("Please select valid operation");
+    }
+}
 
 fn main() -> Result<()> {
     let path = "./my_db.db3";
@@ -35,17 +73,6 @@ fn main() -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY, user_name TEXT NOT NULL UNIQUE, master_password TEXT NOT NULL)",
         (),
-    )?;
-
-    let user1 = User {
-        id: 0,
-        name: "user1".to_string(),
-        master_password: "password".to_string(),
-    };
-
-    conn.execute(
-        "INSERT INTO users (user_name, master_password) VALUES (?1, ?2)",
-        (&user1.name, &user1.master_password),
     )?;
 
     let mut stmt = conn.prepare("SELECT id, user_name, master_password FROM users")?;
@@ -67,7 +94,9 @@ fn main() -> Result<()> {
         stdin()
             .read_line(&mut user_input)
             .expect("Error while reading line");
-        println!("{}", user_input.trim());
+
+        let parsed_option: u8 = user_input.trim().parse().expect("Failed to parse integer");
+        password_manager_operations(parsed_option, &conn);
         user_input.clear();
     }
 
