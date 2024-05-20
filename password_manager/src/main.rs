@@ -9,11 +9,12 @@ struct User {
 }
 
 fn display_options_list() {
-    const SCREEN_TEXT: [&str; 4] = [
+    const SCREEN_TEXT: [&str; 5] = [
         "PASSWORD MANAGER :",
         "1. Create Account",
         "2. Login",
         "3. Add Password",
+        "Q. Quit",
     ];
     for text in SCREEN_TEXT {
         println!("{text}");
@@ -53,7 +54,7 @@ fn add_password() {}
 fn password_manager_operations(selected_operation: u8, conn: &Connection) {
     if selected_operation == 1 {
         // Create Account
-        create_account(&conn);
+        let _ = create_account(&conn);
     } else if selected_operation == 2 {
         // Login
         login();
@@ -94,6 +95,10 @@ fn main() -> Result<()> {
         stdin()
             .read_line(&mut user_input)
             .expect("Error while reading line");
+
+        if user_input.trim() == "q" || user_input.trim() == "Q" {
+            break;
+        }
 
         let parsed_option: u8 = user_input.trim().parse().expect("Failed to parse integer");
         password_manager_operations(parsed_option, &conn);
