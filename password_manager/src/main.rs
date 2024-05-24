@@ -47,9 +47,90 @@ fn create_account(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn login() {}
+fn find_user_by_username_and_password(
+    conn: &Connection,
+    username: &String,
+    password: &String,
+) -> Result<Option<User>> {
+    let mut stmt = match conn.prepare(
+        "SELECT id, user_name, master_password FROM users WHERE user_name=?1 AND master_password=?2",
+    ) {
+        Ok(stmt) => stmt,
+        Err(err) => {
+            println!("Error in prepare {}", err);
+            return Err(err);
+        }
+    };
+    println!("STMT after");
+    let mut rows = stmt.query([&username, &password])?;
 
-fn add_password() {}
+    println!("AFTER rows");
+
+    if let Some(row) = rows.next()? {
+        let user = User {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            master_password: row.get(2)?,
+        };
+        println!("User: {} {} {}", user.id, user.name, user.master_password);
+        Ok(Some(user))
+    } else {
+        println!("login failed");
+        Ok(None)
+    }
+}
+
+fn login(conn: &Connection) -> Result<()> {
+    let mut name = String::new();
+    let mut master_password = String::new();
+
+    println!("Enter username to login:");
+    stdin()
+        .read_line(&mut name)
+        .expect("Failed to read username");
+    name = name.trim().to_string();
+
+    println!("Enter master password:");
+    stdin()
+        .read_line(&mut master_password)
+        .expect("Failed to read master password");
+    master_password = master_password.trim().to_string();
+
+    let logged_user = find_user_by_username_and_password(&conn, &name, &master_password)?;
+
+    println!("AFTER logged_user");
+
+    match logged_user {
+        Some(p) => println!("Logged in successfully\nWelcome {}", p.name),
+
+        None => println!("Login Failed\nTry again with correct username and password"),
+    }
+
+    Ok(())
+}
+
+fn add_password(conn: &Connection, is_logged: bool, username: &String) -> Result<()> {
+    if !is_logged {
+        println!("Please login to add data")
+    }
+
+    let mut account_name = String::new();
+    let mut account_password = String::new();
+
+    println!("Add account name to store:");
+    stdin()
+        .read_line(&mut account_name)
+        .expect("Failed to read account name");
+    account_name = account_name.trim().to_string();
+
+    println!("Add account password:");
+    stdin()
+        .read_line(&mut account_password)
+        .expect("Failed to read account password");
+    account_password = account_password.trim().to_string();
+
+    Ok(())
+}
 
 fn password_manager_operations(selected_operation: u8, conn: &Connection) {
     if selected_operation == 1 {
@@ -57,7 +138,7 @@ fn password_manager_operations(selected_operation: u8, conn: &Connection) {
         let _ = create_account(&conn);
     } else if selected_operation == 2 {
         // Login
-        login();
+        let _ = login(&conn);
     } else if selected_operation == 3 {
         // Add account password pair
         add_password();
