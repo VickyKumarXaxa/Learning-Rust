@@ -8,6 +8,16 @@ struct User {
     master_password: String,
 }
 
+impl Default for User {
+    fn default() -> Self {
+        Self {
+            id: 0,
+            name: String::new(),
+            master_password: String::new(),
+        }
+    }
+}
+
 fn display_options_list() {
     const SCREEN_TEXT: [&str; 5] = [
         "PASSWORD MANAGER :",
@@ -21,7 +31,7 @@ fn display_options_list() {
     }
 }
 
-fn create_account(conn: &Connection) -> Result<()> {
+fn create_account(conn: &Connection) -> Result<Option<User>> {
     println!("Creating Account...");
 
     let mut name = String::new();
@@ -39,12 +49,15 @@ fn create_account(conn: &Connection) -> Result<()> {
         .expect("Failed to read master password");
     master_password = master_password.trim().to_string();
 
-    conn.execute(
+    match conn.execute(
         "INSERT INTO users (user_name, master_password) VALUES (?1, ?2)",
         (&name, &master_password),
-    )?;
+    ) {
+        Ok(res) => println!("Added user to the database. {} rows affected.", res),
+        Err(e) => println!("Failed to add user : {}", e),
+    }
 
-    Ok(())
+    find_user_by_username_and_password(conn, &name, &master_password)
 }
 
 fn find_user_by_username_and_password(
@@ -96,7 +109,7 @@ fn login(conn: &Connection) -> Result<()> {
         .expect("Failed to read master password");
     master_password = master_password.trim().to_string();
 
-    let logged_user = find_user_by_username_and_password(&conn, &name, &master_password)?;
+    let logged_user = find_user_by_username_and_password(conn, &name, &master_password)?;
 
     println!("AFTER logged_user");
 
@@ -135,16 +148,65 @@ fn add_password(conn: &Connection, is_logged: bool, username: &String) -> Result
 fn password_manager_operations(selected_operation: u8, conn: &Connection) {
     if selected_operation == 1 {
         // Create Account
-        let _ = create_account(&conn);
+        let _ = create_account(conn);
     } else if selected_operation == 2 {
         // Login
-        let _ = login(&conn);
+        let _ = login(conn);
     } else if selected_operation == 3 {
         // Add account password pair
-        add_password();
+        // add_password();
     } else {
         // invalid option
         println!("Please select valid operation");
+    }
+}
+
+fn create_users_table(conn: &Connection) {
+    const CREATE_USERS_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, user_name TEXT NOT NULL UNIQUE, master_password TEXT NOT NULL)";
+    match conn.execute(CREATE_USERS_TABLE_SQL, ()) {
+        Ok(res) => println!("Created users. {} rows changed", res),
+        Err(e) => println!("Failed to create users table: {}", e),
+    }
+}
+
+fn create_vaults_table(conn: &Connection) {
+    const CREATE_VAULTS_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS vaults (id INTEGER PRIMARY KEY, vault TEXT NOT NULL, user_name TEXT NOT NULL)";
+    match conn.execute(CREATE_VAULTS_TABLE_SQL, ()) {
+        Ok(res) => println!("Created vaults. {} rows changed", res),
+        Err(e) => println!("Failed to create vaults table: {}", e),
+    }
+}
+
+fn create_passwords_table(conn: &Connection) {
+    const CREATE_PASSWORDS_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS passwords (id INTEGER PRIMARY KEY, profile_name TEXT NOT NULL, profile_password TEXT NOT NULL, vault_id INTEGER NOT NULL)";
+    match conn.execute(CREATE_PASSWORDS_TABLE_SQL, ()) {
+        Ok(res) => println!("Created passwords. {} rows changed", res),
+        Err(e) => println!("Failed to create passwords table: {}", e),
+    }
+}
+
+fn create_tables_in_db(conn: &Connection) {
+    create_users_table(conn);
+    create_vaults_table(conn);
+    create_passwords_table(conn);
+}
+
+fn sign_in(conn: &Connection) {}
+
+fn authenticate(conn: &Connection) {
+    let mut authenticated_user = User::default();
+    println!("1. Create Account\n2. Login");
+    let mut user_input = String::new();
+    stdin()
+        .read_line(&mut user_input)
+        .expect("Failed to read user input");
+    user_input = user_input.trim().to_string();
+    let user_input: u8 = user_input.parse().expect("Failed to parse user input");
+
+    if user_input == 1 {
+        // Create user account
+    } else if user_input == 2 {
+        //login
     }
 }
 
@@ -152,10 +214,7 @@ fn main() -> Result<()> {
     let path = "./my_db.db3";
     let conn = Connection::open(path)?;
 
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS users ( id INTEGER PRIMARY KEY, user_name TEXT NOT NULL UNIQUE, master_password TEXT NOT NULL)",
-        (),
-    )?;
+    create_tables_in_db(&conn);
 
     let mut stmt = conn.prepare("SELECT id, user_name, master_password FROM users")?;
     let user_iter = stmt.query_map([], |row| {
